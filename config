@@ -2,5 +2,5 @@
 
 export PACKAGE_CORE_NAME="taglib"
 export PACKAGE_CORE_BIN_NAME="$PACKAGE_CORE_NAME"
-export PACKAGE_CORE_VERSION=v2.1.7
+export PACKAGE_CORE_VERSION=v1.13
 export PACKAGE_CORE_RELEASE_DOWNLOAD="https://github.com/taglib/taglib/releases/download"

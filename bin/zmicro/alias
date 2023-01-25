@@ -5,11 +5,12 @@ help() {
   echo "  zmicro taglib <args ...>"
   echo ""
 
-  taglib --help
+  # taglib --help
 }
 
 version() {
-  taglib --version
+  # taglib --version
+  echo "v1.13"
 }
 
 core() {
