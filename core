@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# @TODO fix sudo if not found
+command -v sudo >>/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  sudo() {
+    eval "$@"
+  }
+
+  export -f sudo
+fi
+
+install() {
+  # prepare vars
+  local name="$PACKAGE_CORE_NAME"
+
+  log::info "[$(timestamp)][package][$name] preparing ..."
+
+  # get system os/arch
+  local arch="$PACKAGE_OS_ARCH"
+  local kernel="$PACKAGE_OS_KERNEL"
+  local platform="$PACKAGE_OS_PLATFORM"
+  # usr_bin_dir
+  local usr_bin_dir="$PACKAGE_USER_BIN_DIR"
+  local tmp_dir="$PACKAGE_TMP_DIR"
+
+  # files
+  local tmp_file="$name.tar.gz"
+  local bin_file="./${name}-${PACKAGE_CORE_VERSION#v}-${platform}-${arch}/$name"
+
+  # prepare context
+  cd $tmp_dir
+
+  # reference: https://www.navidrome.org/docs/installation/build-from-source/
+  case $platform in
+    darwin)
+      brew install taglib
+      return $?
+      ;;
+    linux)
+      if [ "$(os::is_ubuntu)" = "true" ]; then
+        pm install -y libtag1-dev
+        return $?
+      else
+        log::info "$platform build taglib from source code ..."
+      fi
+      ;;
+    *)
+      log::error "[$(timestamp)] unsupport platform: $platform"
+      ;;
+  esac
+
+  # @TODO from docker://deluan/ci-goreleaser:1.19.5-1
+  export TAGLIB_VERSION=1.13
+  export TAGLIB_SHA=58f08b4db3dc31ed152c04896ee9172d22052bc7ef12888028c01d8b1d60ade0
+  export TAGLIB_DOWNLOAD_FILE=taglib-1.13.tar.gz
+  export TABLIB_BUILD_OPTS=-DCMAKE_BUILD_TYPE=Release -DWITH_MP4=ON -DWITH_ASF=ON -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF
+
+  log::info "[$(timestamp)][package][$name] downloading from https://taglib.github.io/releases/$TAGLIB_DOWNLOAD_FILE ..."
+  os::wget https://taglib.github.io/releases/$TAGLIB_DOWNLOAD_FILE \
+    && echo "$TAGLIB_SHA $TAGLIB_DOWNLOAD_FILE" | sha256sum -c -
+  if [ "$?" != "0" ]; then
+    return 1
+  fi
+
+  tar xvfz taglib-$TAGLIB_VERSION.tar.gz \
+    && mv taglib-${TAGLIB_VERSION} $tmp_dir/taglib-src
+
+  log::info "[$(timestamp)][package][$name] build static taglib for Linux 64" \
+    && cd /tmp/taglib-src \
+    && cmake -DCMAKE_INSTALL_PREFIX=/usr $TABLIB_BUILD_OPTS \
+    && sudo make install
+
+  # # reference: https://github.com/taglib/taglib/releases
+  # # example:
+  # #   https://github.com/taglib/taglib/releases/download/v2.1.7/taglib-2.1.7-darwin-arm64.tar.gz
+  # #   https://github.com/taglib/taglib/releases/download/v2.1.7/taglib-2.1.7-darwin-amd64.tar.gz
+  # # generate url
+  # local url="${PACKAGE_CORE_RELEASE_DOWNLOAD}/$PACKAGE_CORE_VERSION/${name}-${PACKAGE_CORE_VERSION#v}-${platform}-${arch}.tar.gz"
+  # log::debug "[$(timestamp)][package][$name][$kernel][$arch] url: $url, file: ${tmp_file}, tmp_dir: $tmp_dir"
+
+  # # download
+  # log::info "[$(timestamp)][package][$name] downloading ..."
+  # os::download $tmp_file $url
+
+  # # extract
+  # log::info "[$(timestamp)][package][$name] extracting ..."
+  # os::extract $tmp_file
+
+  # # install
+  # log::info "[$(timestamp)][package][$name] installing ..."
+  # os::install $bin_file $usr_bin_dir
+
+# Complex like maven-mvnd
+#   # make executable
+#   log::info "[$(timestamp)][package][$name] making executable ..."
+#   chmod 755 $bin_file
+
+#   # install
+#   if [ -d "$usr_lib_dir/${name}" ]; then
+#     log::info "[$(timestamp)][package][$name] removing old lib ..."
+#     sudo rm -rf $usr_lib_dir/${name}
+#   fi
+#   log::info "[$(timestamp)][package][$name] installing lib ..."
+#   sudo mv $lib_dir $usr_lib_dir/${name}
+
+#   # install
+#   log::info "[$(timestamp)][package][$name] installing bin ..."
+#   sudo ln -sf $usr_lib_dir/${name}/bin/${PACKAGE_CORE_BIN_NAME} $usr_bin_dir/${PACKAGE_CORE_BIN_NAME}
+
+#   # profile
+#   log::success "[$(timestamp)][package][$name] config MVND_HOME=$usr_lib_dir/${name} to global env file ..."
+#   local envs=$(
+#     cat <<-END
+# export MVND_HOME=$usr_lib_dir/${name}
+# END
+# )
+#   config::profile "# ZMICRO PACKAGE MAVEN-MVND" "$envs"
+
+  # clean
+  log::info "[$(timestamp)][package][$name] cleaning ..."
+  rm -rf $tmp_dir
+}
+
+export -f install

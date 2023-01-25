@@ -1,0 +1,41 @@
+#!/bin/bash
+
+help() {
+  echo "Usage:"
+  echo "  zmicro taglib <args ...>"
+  echo ""
+
+  taglib --help
+}
+
+version() {
+  taglib --version
+}
+
+core() {
+  # context directory
+  local context="$ZMICRO_PACKAGES_DATA_PATH/taglib"
+  if [ ! -d "$context" ]; then
+    mkdir -p $context
+  fi
+  cd $context
+  # context directory
+
+  case $1 in
+  -h | --help | help)
+    help
+    ;;
+  -v | --version | version)
+    version
+    ;;
+  *)
+    taglib "$@"
+    ;;
+  esac
+}
+
+run() {
+  core "$@"
+}
+
+run "$@"
